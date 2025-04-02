@@ -11,7 +11,7 @@ export default function Home() {
   const [showArrow, setShowArrow] = useState(false);
   const [enterPressed, setEnterPressed] = useState(false);
   const name = "  Sarthak Jain";
-  const inputRef = useRef(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (inputRef.current) {
