@@ -45,7 +45,7 @@ export default function Home() {
     >
       {!enterPressed ? (
         <div className="text-center">
-          <h1 className="text-6xl font-bold mb-6 text-white">Google</h1>
+          <h1 className="text-6xl font-bold mb-6 text-white">6oogle</h1>
           <motion.div
             className="flex items-center space-x-2 bg-white p-2 rounded-full shadow-md w-[280px]"
             initial={{ opacity: 0, y: -20 }}
