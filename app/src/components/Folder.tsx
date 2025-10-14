@@ -107,10 +107,13 @@ export default function Folder({ category, onOpen, initial }: FolderProps) {
       }}
       onMouseDown={() => {
         clickHoldRef.current = true;
-        setShowPreview(false);
-        setScrolling(false);
-        clearHoverTimer();
-        clearScrollTimer();
+        // If preview isn't visible yet, cancel delayed hover; otherwise keep it
+        if (!showPreview) {
+          setShowPreview(false);
+          setScrolling(false);
+          clearHoverTimer();
+          clearScrollTimer();
+        }
       }}
       onMouseUp={() => {
         clickHoldRef.current = false;
@@ -173,7 +176,15 @@ export default function Folder({ category, onOpen, initial }: FolderProps) {
         {/* Hover Preview Strip (not for settings, with 2s delay) */}
         {showPreview && category.id !== "settings" && (
           <div className="mt-2 overflow-hidden w-[380px] sm:w-[420px]">
-            <div className="desk-preview">
+            <div
+              className="desk-preview cursor-pointer"
+              role="button"
+              tabIndex={0}
+              onClick={(e) => {
+                e.preventDefault();
+                onOpen(category);
+              }}
+            >
               <div className={`desk-preview-strip ${scrolling ? "animate-scroll" : ""}`}>
               {(() => {
                 const items = category.items;
