@@ -22,6 +22,7 @@ export default function Desk() {
   const [previewSpeedSec, setPreviewSpeedSec] = useState<number>(10);
   const [motionMax, setMotionMax] = useState<number>(12);
   const [introOpen, setIntroOpen] = useState(false);
+  const [isTouchLandscape, setIsTouchLandscape] = useState(false);
 
   // Initial folder positions (desktop-like scatter)
   const positions: Record<DeskCategory["id"], { x: number; y: number }> = {
@@ -107,6 +108,31 @@ export default function Desk() {
       if (!played) setIntroOpen(true);
     } catch {}
   }, []);
+
+  // Detect mobile/tablet landscape (touch + landscape)
+  useEffect(() => {
+    const mqlLandscape = window.matchMedia('(orientation: landscape)');
+    const mqlCoarse = window.matchMedia('(pointer: coarse)');
+    const update = () => setIsTouchLandscape(mqlLandscape.matches && mqlCoarse.matches);
+    try {
+      mqlLandscape.addEventListener('change', update);
+      mqlCoarse.addEventListener('change', update);
+    } catch {
+      // Safari fallback
+      mqlLandscape.addListener(update);
+      mqlCoarse.addListener(update);
+    }
+    update();
+    return () => {
+      try {
+        mqlLandscape.removeEventListener('change', update);
+        mqlCoarse.removeEventListener('change', update);
+      } catch {
+        mqlLandscape.removeListener(update);
+        mqlCoarse.removeListener(update);
+      }
+    };
+  }, []);
   useEffect(() => {
     try {
       localStorage.setItem(
@@ -151,10 +177,13 @@ export default function Desk() {
           try { localStorage.setItem("portfolio-intro-played", "1"); } catch {}
         }}
       />
-      {/* subtle center vignette */}
-      <motion.div style={{ x: tx, y: ty }} className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_40%_at_50%_40%,rgba(255,255,255,0.06),transparent_60%)]" />
+      {/* subtle center vignette (hidden on touch landscape for cleaner centering) */}
+      {!isTouchLandscape && (
+        <motion.div style={{ x: tx, y: ty }} className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_40%_at_50%_40%,rgba(255,255,255,0.06),transparent_60%)]" />
+      )}
 
-      <div className="absolute inset-0 grid place-items-center">
+      {/* Desktop scatter (sm and up), but not on touch landscape */}
+      <div className={`absolute inset-0 place-items-center ${isTouchLandscape ? 'hidden' : 'hidden sm:grid'}`}>
         <motion.div style={{ x: tx, y: ty, width: 0, height: 0 }} className="relative">
           {deskCategories.map((cat) => (
             <div key={cat.id} className="absolute -translate-x-1/2 -translate-y-1/2" style={{ left: positions[cat.id].x, top: positions[cat.id].y }}>
@@ -162,6 +191,17 @@ export default function Desk() {
             </div>
           ))}
         </motion.div>
+      </div>
+
+      {/* Mobile centered grid (xs only) + forced on touch landscape */}
+      <div className={`${isTouchLandscape ? 'flex' : 'sm:hidden flex'} items-center justify-center min-h-[100svh] w-full`}>
+        <div className={`${isTouchLandscape ? 'grid grid-cols-3 gap-6 px-8 py-12 max-w-3xl' : 'grid grid-cols-2 gap-5 px-6 py-14 max-w-md'} w-full`}>
+          {deskCategories.map((cat) => (
+            <div key={cat.id} className="flex justify-center">
+              <Folder category={cat} onOpen={onOpenCat} initial={{ x: 0, y: 0 }} draggable={true} />
+            </div>
+          ))}
+        </div>
       </div>
 
       {openCat && openCat.id !== "settings" && (

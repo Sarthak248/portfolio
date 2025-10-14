@@ -26,9 +26,10 @@ type FolderProps = {
   category: DeskCategory;
   onOpen: (c: DeskCategory) => void;
   initial: { x: number; y: number };
+  draggable?: boolean;
 };
 
-export default function Folder({ category, onOpen, initial }: FolderProps) {
+export default function Folder({ category, onOpen, initial, draggable = true }: FolderProps) {
   const controls = useAnimation();
   const draggingRef = useRef(false);
   const movedRef = useRef(false);
@@ -39,6 +40,8 @@ export default function Folder({ category, onOpen, initial }: FolderProps) {
   const hoverTimerRef = useRef<number | null>(null);
   const scrollTimerRef = useRef<number | null>(null);
   const showPreviewRef = useRef(false);
+  // Track global pointer state to prevent hover while dragging across folders
+  const isPointerDownRef = useRef(false);
 
   const clearHoverTimer = () => {
     if (hoverTimerRef.current) {
@@ -73,16 +76,31 @@ export default function Folder({ category, onOpen, initial }: FolderProps) {
   }, []);
 
   useEffect(() => {
+    const onDown = () => { isPointerDownRef.current = true; };
+    const onUp = () => { isPointerDownRef.current = false; };
+    window.addEventListener("mousedown", onDown);
+    window.addEventListener("mouseup", onUp);
+    window.addEventListener("touchstart", onDown, { passive: true });
+    window.addEventListener("touchend", onUp, { passive: true });
+    return () => {
+      window.removeEventListener("mousedown", onDown);
+      window.removeEventListener("mouseup", onUp);
+      window.removeEventListener("touchstart", onDown as any);
+      window.removeEventListener("touchend", onUp as any);
+    };
+  }, []);
+
+  useEffect(() => {
     showPreviewRef.current = showPreview;
   }, [showPreview]);
 
   return (
     <motion.div
       className="desk-folder"
-      drag
-      dragMomentum={false}
-      dragElastic={0.12}
-      whileDrag={{ scale: 1.02 }}
+      drag={draggable}
+      dragMomentum={draggable ? false : undefined}
+      dragElastic={draggable ? 0.12 : undefined}
+      whileDrag={draggable ? { scale: 1.02 } : undefined}
       animate={controls}
       initial={{ x: initial.x, y: initial.y, opacity: 0, scale: 0.96 }}
       // keep position unchanged on hover; lighting effect handles feedback
@@ -94,6 +112,15 @@ export default function Folder({ category, onOpen, initial }: FolderProps) {
         const y = e.clientY - rect.top;
         el.style.setProperty("--mx", `${x}px`);
         el.style.setProperty("--my", `${y}px`);
+        // If any button is pressed while moving, cancel preview/timers to avoid accidental hovers while dragging
+        if ((e.buttons ?? 0) !== 0) {
+          if (showPreviewRef.current || hoverTimerRef.current || scrollTimerRef.current) {
+            setShowPreview(false);
+            setScrolling(false);
+            clearHoverTimer();
+            clearScrollTimer();
+          }
+        }
       }}
       onMouseLeave={(e) => {
         const el = e.currentTarget as HTMLElement;
@@ -142,7 +169,13 @@ export default function Folder({ category, onOpen, initial }: FolderProps) {
           if (hovered && !clickHoldRef.current) startHoverTimer();
         });
       }}
-      onMouseEnter={() => { setHovered(true); if (!clickHoldRef.current && !draggingRef.current) startHoverTimer(); }}
+      onMouseEnter={() => {
+        setHovered(true);
+        // Only start hover intent if pointer is not down and we're not dragging
+        if (!clickHoldRef.current && !draggingRef.current && !isPointerDownRef.current) {
+          startHoverTimer();
+        }
+      }}
     >
       <button
         className="w-full text-left outline-none focus-visible:outline-none"
@@ -175,7 +208,7 @@ export default function Folder({ category, onOpen, initial }: FolderProps) {
 
         {/* Hover Preview Strip (not for settings, with 2s delay) */}
         {showPreview && category.id !== "settings" && (
-          <div className="mt-2 overflow-hidden w-[380px] sm:w-[420px]">
+          <div className="mt-2 overflow-hidden w-full max-w-[420px] mx-auto px-3 sm:px-0">
             <div
               className="desk-preview cursor-pointer"
               role="button"
