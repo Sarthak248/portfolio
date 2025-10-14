@@ -7,6 +7,7 @@ import GlassModal from "./GlassModal";
 import { deskCategories, type DeskCategory } from "./deskContent";
 import ItemModal from "./ItemModal";
 import SettingsModal from "./SettingsModal";
+import IntroOverlay from "./IntroOverlay";
 
 export default function Desk() {
   const [openCat, setOpenCat] = useState<DeskCategory | null>(null);
@@ -20,6 +21,7 @@ export default function Desk() {
   const [wallpaper, setWallpaper] = useState<"wall-sequoia" | "wall-sonoma" | "wall-ventura" | "wall-monterey">("wall-sequoia");
   const [previewSpeedSec, setPreviewSpeedSec] = useState<number>(10);
   const [motionMax, setMotionMax] = useState<number>(12);
+  const [introOpen, setIntroOpen] = useState(false);
 
   // Initial folder positions (desktop-like scatter)
   const positions: Record<DeskCategory["id"], { x: number; y: number }> = {
@@ -100,6 +102,10 @@ export default function Desk() {
       if (typeof saved.motionMax === "number") setMotionMax(saved.motionMax);
       if (typeof saved.soundOn === "boolean") setSoundOn(saved.soundOn);
     } catch {}
+    try {
+      const played = localStorage.getItem("portfolio-intro-played");
+      if (!played) setIntroOpen(true);
+    } catch {}
   }, []);
   useEffect(() => {
     try {
@@ -136,6 +142,15 @@ export default function Desk() {
       className={`relative min-h-dvh w-full desk-bg ${wallpaper} text-white`}
       style={{ ["--preview-speed" as any]: `${previewSpeedSec}s` }}
     >
+      {/* Intro overlay (plays once) */}
+      <IntroOverlay
+        open={introOpen}
+        soundOn={soundOn}
+        onDone={() => {
+          setIntroOpen(false);
+          try { localStorage.setItem("portfolio-intro-played", "1"); } catch {}
+        }}
+      />
       {/* subtle center vignette */}
       <motion.div style={{ x: tx, y: ty }} className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_40%_at_50%_40%,rgba(255,255,255,0.06),transparent_60%)]" />
 
