@@ -17,9 +17,11 @@ type ItemModalProps = {
 };
 
 export default function ItemModal({ item, onClose }: ItemModalProps) {
-  const [idx, setIdx] = useState(0);
   const trackRef = useRef<HTMLDivElement>(null);
   const [containerW, setContainerW] = useState(0);
+  const [pos, setPos] = useState(0); // absolute index in tripled track
+  const posRef = useRef(0);
+  const [instant, setInstant] = useState(false);
   const slides = useMemo(() => {
     if (!item) return [] as Array<{ img: string; text: string }>;
     if ((item as any).slides && Array.isArray((item as any).slides) && (item as any).slides.length > 0) {
@@ -36,22 +38,70 @@ export default function ItemModal({ item, onClose }: ItemModalProps) {
     return lipsum.map((txt, i) => ({ img: imgs[i % imgs.length], text: txt }));
   }, [item]);
 
-  useEffect(() => { setIdx(0); }, [item]);
+  useEffect(() => {
+    const n = slides.length || 1;
+    const mid = n; // start at middle copy for slide 0
+    setInstant(true);
+    setPos(mid);
+    posRef.current = mid;
+    requestAnimationFrame(() => setInstant(false));
+  }, [item, slides.length]);
 
   // Measure container width for pixel-accurate sliding (prevents empty frames)
   useEffect(() => {
-    const update = () => {
-      const el = trackRef.current?.parentElement as HTMLElement | undefined;
-      if (!el) return;
-      setContainerW(el.clientWidth);
+    const el = trackRef.current?.parentElement as HTMLElement | undefined;
+    if (!el) return;
+    const measure = () => {
+      const w = el.clientWidth;
+      if (w !== 0) setContainerW(w);
     };
-    update();
-    window.addEventListener("resize", update);
-    return () => window.removeEventListener("resize", update);
-  }, []);
+    const raf = requestAnimationFrame(measure);
+    const ro = new ResizeObserver(measure);
+    try { ro.observe(el); } catch {}
+    window.addEventListener("resize", measure);
+    return () => {
+      cancelAnimationFrame(raf);
+      try { ro.disconnect(); } catch {}
+      window.removeEventListener("resize", measure);
+    };
+  }, [item]);
 
-  const onPrev = useCallback(() => setIdx((p) => (p === 0 ? slides.length - 1 : p - 1)), [slides.length]);
-  const onNext = useCallback(() => setIdx((p) => (p + 1) % slides.length), [slides.length]);
+  const onNext = useCallback(() => {
+    const n = slides.length;
+    if (n === 0) return;
+    setInstant(true);
+    setPos((p) => {
+      const next = p + n; // jump one copy right so we can move left
+      posRef.current = next;
+      return next;
+    });
+    requestAnimationFrame(() => {
+      setInstant(false);
+      setPos((p) => {
+        const next = p + 1; // move leftwards visually
+        posRef.current = next;
+        return next;
+      });
+    });
+  }, [slides.length]);
+  const onPrev = useCallback(() => {
+    const n = slides.length;
+    if (n === 0) return;
+    setInstant(true);
+    setPos((p) => {
+      const next = p - n; // jump one copy left so we can move right
+      posRef.current = next;
+      return next;
+    });
+    requestAnimationFrame(() => {
+      setInstant(false);
+      setPos((p) => {
+        const next = p - 1; // move rightwards visually
+        posRef.current = next;
+        return next;
+      });
+    });
+  }, [slides.length]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -111,8 +161,27 @@ export default function ItemModal({ item, onClose }: ItemModalProps) {
               <motion.div
                 ref={trackRef}
                 className="flex"
-                animate={{ x: -idx * containerW }}
-                transition={{ type: "tween", duration: 0.75, ease: "easeInOut" }}
+                animate={{ x: -pos * containerW }}
+                transition={instant ? { type: "tween", duration: 0 } : { type: "tween", duration: 0.75, ease: "easeInOut" }}
+                onUpdate={() => { /* no-op */ }}
+                onAnimationComplete={() => {
+                  const n = slides.length;
+                  if (n === 0) return;
+                  const p = posRef.current;
+                  if (p < n) {
+                    setInstant(true);
+                    const next = p + n; // rebase to middle copy
+                    setPos(next);
+                    posRef.current = next;
+                    requestAnimationFrame(() => setInstant(false));
+                  } else if (p >= 2 * n) {
+                    setInstant(true);
+                    const next = p - n;
+                    setPos(next);
+                    posRef.current = next;
+                    requestAnimationFrame(() => setInstant(false));
+                  }
+                }}
                 drag="x"
                 dragElastic={0.12}
                 dragMomentum={false}
@@ -122,20 +191,24 @@ export default function ItemModal({ item, onClose }: ItemModalProps) {
                   else if (info.offset.x < -threshold) onNext();
                 }}
               >
-                {slides.map((s, i) => (
-                  <div key={i} className="shrink-0 grow-0 basis-full px-1">
-                    <div className="relative">
-                      {/* Float image so text wraps neatly around it on larger widths */}
-                      <div className="relative float-left mr-4 mb-2 w-28 h-28 sm:w-36 sm:h-36 md:w-40 md:h-40 rounded-lg overflow-hidden">
-                        <Image src={s.img} alt="" fill className="object-cover" />
+                {(() => {
+                  const n = slides.length;
+                  const trip = [...slides, ...slides, ...slides];
+                  const start = n - (pos % n + n) % n; // ensure key stability across pos changes
+                  return trip.map((s, i) => (
+                    <div key={`${start}-${i}`} className="shrink-0 grow-0 basis-full px-1">
+                      <div className="relative">
+                        <div className="relative float-left mr-4 mb-2 w-28 h-28 sm:w-36 sm:h-36 md:w-40 md:h-40 rounded-lg overflow-hidden">
+                          <Image src={s.img} alt="" fill className="object-cover" />
+                        </div>
+                        <p className="text-sm opacity-85 leading-relaxed whitespace-pre-line max-h-[48vh] overflow-auto pr-1">
+                          {s.text}
+                        </p>
+                        <div className="clear-both" />
                       </div>
-                      <p className="text-sm opacity-85 leading-relaxed whitespace-pre-line max-h-[48vh] overflow-auto pr-1">
-                        {s.text}
-                      </p>
-                      <div className="clear-both" />
                     </div>
-                  </div>
-                ))}
+                  ));
+                })()}
               </motion.div>
 
               {/* Controls */}
@@ -145,9 +218,13 @@ export default function ItemModal({ item, onClose }: ItemModalProps) {
                     Prev
                   </button>
                   <div className="flex items-center gap-2">
-                    {slides.map((_, i) => (
-                      <span key={i} className={`inline-block h-1.5 w-4 rounded-full ${i === idx ? 'bg-white/90' : 'bg-white/30'}`} />
-                    ))}
+                    {slides.map((_, i) => {
+                      const n = slides.length || 1;
+                      const realIdx = ((pos % n) + n) % n;
+                      return (
+                        <span key={i} className={`inline-block h-1.5 w-4 rounded-full ${i === realIdx ? 'bg-white/90' : 'bg-white/30'}`} />
+                      );
+                    })}
                   </div>
                   <button className="desk-button" onClick={onNext} aria-label="Next">
                     Next
