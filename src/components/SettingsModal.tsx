@@ -51,13 +51,13 @@ export default function SettingsModal(props: SettingsModalProps) {
             role="dialog"
             aria-modal
             aria-label="Settings"
-            className="desk-glass-window"
+            className="desk-glass-window w-[92vw] sm:w-auto max-w-[min(92vw,720px)] max-h-[82svh] overflow-auto"
             initial={{ opacity: 0, y: 18, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.99 }}
             transition={{ type: "spring", stiffness: 140, damping: 16 }}
           >
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-3 sticky top-0 z-10 bg-black/30 backdrop-blur-[2px] rounded-lg px-3 py-2 -mx-3">
               <div className="flex items-center gap-2">
                 <span className="inline-block h-2.5 w-2.5 rounded-full bg-red-400/80" />
                 <span className="inline-block h-2.5 w-2.5 rounded-full bg-yellow-400/80" />
@@ -75,7 +75,7 @@ export default function SettingsModal(props: SettingsModalProps) {
               </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-2">
               <section className="desk-card">
                 <div className="text-sm font-medium mb-2">Wallpaper</div>
                 <div className="grid grid-cols-2 gap-3">

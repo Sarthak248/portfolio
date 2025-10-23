@@ -53,11 +53,9 @@ export default function GlassModal({ category, onClose, onOpenItem }: GlassModal
               </button>
             </div>
 
-            {/* Tabs mock */}
+            {/* Overview only */}
             <div className="mb-4 flex gap-2">
               <div className="desk-tab desk-tab--active">Overview</div>
-              <div className="desk-tab">Items</div>
-              <div className="desk-tab">Info</div>
             </div>
 
             <div className="mt-0 grid grid-cols-1 sm:grid-cols-2 gap-4">
